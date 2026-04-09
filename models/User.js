@@ -7,17 +7,12 @@ const userSchema = new mongoose.Schema({
         required: true,
         trim: true
     },
-    universityId: {
-        type: String,
-        required: true,
-        unique: true,
-        trim: true
-    },
     email: {
         type: String,
         required: true,
         unique: true,
-        lowercase: true
+        lowercase: true,
+        trim: true
     },
     password: {
         type: String,
@@ -28,42 +23,34 @@ const userSchema = new mongoose.Schema({
         enum: ['student', 'teacher'],
         required: true
     },
+    universityId: {
+        type: String,
+        required: true
+    },
     department: {
         type: String,
-        default: ''
+        default: 'General'
     },
-    // Teacher-specific fields
-    subjects: {
-        type: [String],
-        default: []
-    },
-    designation: {
-        type: String,
-        default: ''
-    },
-    // Teacher free-now status
     freeNow: {
         type: Boolean,
         default: false
-    },
-    freeUntil: {
-        type: Date,
-        default: null
-    },
-    createdAt: {
-        type: Date,
-        default: Date.now
     }
-});
+}, { timestamps: true });
 
-// Hash password before saving
-userSchema.pre('save', async function () {
-    if (!this.isModified('password')) return;
+// ==========================================
+// SECURITY LOGIC (REQUIRED FOR AUTH.JS)
+// ==========================================
+
+// 1. Hash password before saving to the database
+userSchema.pre('save', async function (next) {
+    if (!this.isModified('password')) {
+        next();
+    }
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
 });
 
-// Method to compare passwords on login
+// 2. Custom method to compare entered password with hashed password
 userSchema.methods.matchPassword = async function (enteredPassword) {
     return await bcrypt.compare(enteredPassword, this.password);
 };

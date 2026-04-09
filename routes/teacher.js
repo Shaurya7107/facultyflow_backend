@@ -6,10 +6,15 @@ const CalendarSlot = require('../models/CalendarSlot');
 const { protect, teacherOnly } = require('../middleware/auth');
 
 // @route   POST /api/teacher/calendar
-// @desc    Add/update a calendar slot (class, busy, meeting, free)
+// @desc    Add/update a calendar slot (class, busy, meeting, free, holiday)
 router.post('/calendar', protect, teacherOnly, async (req, res) => {
     const { date, timeSlot, slotType, note } = req.body;
     try {
+        // SAFETY FEATURE: If marking as a holiday, clear out any existing free slots on that date first!
+        if (slotType === 'holiday') {
+            await CalendarSlot.deleteMany({ user: req.user._id, date: date });
+        }
+
         // Upsert: update if exists, create if not
         const slot = await CalendarSlot.findOneAndUpdate(
             { user: req.user._id, date, timeSlot },
@@ -65,12 +70,12 @@ router.put('/free-now', protect, teacherOnly, async (req, res) => {
 });
 
 // @route   GET /api/teacher/requests
-// @desc    Get all pending appointment requests for the teacher
+// @desc    Get all pending and approved appointment requests for the teacher
 router.get('/requests', protect, teacherOnly, async (req, res) => {
     try {
         const requests = await Appointment.find({
             teacher: req.user._id,
-            status: { $in: ['pending', 'approved'] }
+            status: { $in: ['pending', 'approved'] } // Ensures both show up in the dashboard
         }).populate('student', 'fullName universityId department');
         res.json(requests);
     } catch (error) {

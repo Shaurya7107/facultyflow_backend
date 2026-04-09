@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { protect } = require('../middleware/auth');
 
 // Helper: generate JWT token
 const generateToken = (id) => {
@@ -51,6 +52,7 @@ router.post('/login', async (req, res) => {
     try {
         const user = await User.findOne({ email });
 
+        // This requires the matchPassword method in User.js!
         if (user && (await user.matchPassword(password))) {
             res.json({
                 _id: user._id,
@@ -71,7 +73,6 @@ router.post('/login', async (req, res) => {
 
 // @route   GET /api/auth/me
 // @desc    Get current logged-in user profile
-const { protect } = require('../middleware/auth');
 router.get('/me', protect, async (req, res) => {
     res.json(req.user);
 });

@@ -66,7 +66,24 @@ router.get('/faculty/:id/calendar', protect, studentOnly, async (req, res) => {
 router.post('/appointments', protect, studentOnly, async (req, res) => {
     const { teacherId, date, timeSlot, reason } = req.body;
     try {
-        // Check if that slot is already booked
+        // 1. STRICT BACKEND VALIDATION: Weekend Check
+        const dateObj = new Date(date);
+        const dayOfWeek = dateObj.getDay();
+        if (dayOfWeek === 0 || dayOfWeek === 6) {
+            return res.status(400).json({ message: 'Appointments cannot be booked on weekends.' });
+        }
+
+        // 2. STRICT BACKEND VALIDATION: Holiday Check
+        const isHoliday = await CalendarSlot.findOne({
+            user: teacherId,
+            date: date,
+            slotType: 'holiday'
+        });
+        if (isHoliday) {
+            return res.status(400).json({ message: 'The teacher has marked this date as a holiday.' });
+        }
+
+        // 3. STRICT BACKEND VALIDATION: Double-Booking Check
         const conflict = await Appointment.findOne({
             teacher: teacherId,
             date,
@@ -74,9 +91,10 @@ router.post('/appointments', protect, studentOnly, async (req, res) => {
             status: 'approved'
         });
         if (conflict) {
-            return res.status(400).json({ message: 'This slot is already booked' });
+            return res.status(400).json({ message: 'This slot has already been booked by another student.' });
         }
 
+        // If it passes all 3 security checks, create the request!
         const appointment = await Appointment.create({
             student: req.user._id,
             teacher: teacherId,
